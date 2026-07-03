@@ -48,10 +48,46 @@ var open_folder_button: Button
 
 
 func _ready() -> void:
+	_install_ui_font()
 	_build_ui()
 	_load_settings()
 	_normalize_deleted_archive()
 	_refresh_sessions()
+
+
+func _install_ui_font() -> void:
+	var font_paths: Array[String] = []
+	match OS.get_name():
+		"macOS":
+			font_paths = [
+				"/System/Library/Fonts/Hiragino Sans GB.ttc",
+				"/System/Library/Fonts/STHeiti Medium.ttc",
+				"/System/Library/Fonts/STHeiti Light.ttc",
+				"/System/Library/Fonts/Supplemental/Songti.ttc",
+			]
+		"Windows":
+			font_paths = [
+				"C:/Windows/Fonts/msyh.ttc",
+				"C:/Windows/Fonts/simhei.ttf",
+				"C:/Windows/Fonts/simsun.ttc",
+			]
+		_:
+			font_paths = [
+				"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+				"/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+				"/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+			]
+
+	var font := FontFile.new()
+	for font_path in font_paths:
+		if FileAccess.file_exists(font_path) and font.load_dynamic_font(font_path) == OK:
+			var ui_theme := Theme.new()
+			ui_theme.default_font = font
+			ui_theme.default_font_size = 16
+			theme = ui_theme
+			return
+
+	push_warning("No CJK UI font found; Chinese text may render as missing glyphs.")
 
 
 func _build_ui() -> void:
