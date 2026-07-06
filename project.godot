@@ -26,6 +26,10 @@ window/size/viewport_height=760
 window/size/min_width=1000
 window/size/min_height=640
 
+[gui]
+
+theme/custom="res://themes/codex_token_manager_theme.tres"
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
