@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
+import platform
 import sqlite3
 import sys
 from pathlib import Path
@@ -41,6 +44,10 @@ def candidate_codex_dirs() -> list[Path]:
         else:
             candidates.append(path / ".codex")
 
+    def add_exact(path_value: object) -> None:
+        if path_value:
+            candidates.append(Path(str(path_value)).expanduser())
+
     for env_name in ("CODEX_HOME", "CODEX_DIR"):
         add(os.environ.get(env_name))
 
@@ -59,6 +66,20 @@ def candidate_codex_dirs() -> list[Path]:
             users_root = Path(f"{letter}:/Users")
             if users_root.exists():
                 candidates.extend(users_root.glob("*/.codex"))
+
+    system_name = platform.system()
+    if system_name == "Darwin":
+        users_root = Path("/Users")
+        if users_root.exists():
+            candidates.extend(users_root.glob("*/.codex"))
+        add_exact(Path.home() / "Library" / "Application Support" / "Codex")
+    elif system_name == "Linux":
+        users_root = Path("/home")
+        if users_root.exists():
+            candidates.extend(users_root.glob("*/.codex"))
+        xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            add_exact(Path(xdg_config_home) / "codex")
 
     unique: list[Path] = []
     seen: set[str] = set()
@@ -82,6 +103,19 @@ def resolve_codex_dir(value: str = "") -> Path:
     if value:
         return Path(value).expanduser()
     return discover_codex_dir()
+
+
+def path_lookup_keys(path_value: object) -> set[str]:
+    if not path_value:
+        return set()
+    text = str(path_value)
+    path = Path(text).expanduser()
+    keys = {text.lower(), str(path).lower()}
+    try:
+        keys.add(str(path.resolve()).lower())
+    except OSError:
+        pass
+    return keys
 
 
 def rollout_id_from_path(path: Path) -> str:
@@ -118,7 +152,9 @@ def load_threads(codex_dir: Path) -> dict[str, dict]:
         ):
             rollout_path = row["rollout_path"]
             if rollout_path:
-                threads[str(Path(rollout_path)).lower()] = dict(row)
+                row_data = dict(row)
+                for key in path_lookup_keys(rollout_path):
+                    threads[key] = row_data
     return threads
 
 
@@ -161,7 +197,11 @@ def collect_sessions(codex_dir: Path) -> list[dict]:
             continue
         for file_path in root.rglob("rollout-*.jsonl"):
             usage, timestamp = read_last_token_usage(file_path)
-            meta = threads.get(str(file_path).lower(), {})
+            meta = {}
+            for key in path_lookup_keys(file_path):
+                if key in threads:
+                    meta = threads[key]
+                    break
 
             input_tokens = int((usage or {}).get("input_tokens") or 0)
             cached_input_tokens = int((usage or {}).get("cached_input_tokens") or 0)

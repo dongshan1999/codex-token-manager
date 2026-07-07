@@ -465,7 +465,7 @@ func _open_selected_session_folder() -> void:
 	if session_file == "":
 		log_label.text = "选中记录没有文件路径。"
 		return
-	var folder_path := session_file.get_base_dir().replace("/", "\\")
+	var folder_path := _to_native_path(session_file.get_base_dir())
 	if not DirAccess.dir_exists_absolute(folder_path):
 		log_label.text = "文件夹不存在: %s" % folder_path
 		return
@@ -596,38 +596,50 @@ func _save_current_display_archive() -> void:
 func _open_export_archive_dialog() -> void:
 	_save_current_display_archive()
 	var default_name := "codex_token_manager_archive_%s.json" % Time.get_datetime_string_from_system(false, true).replace(":", "-").replace(" ", "_")
+	var default_dir := _archive_dialog_default_dir()
 	if _show_native_file_dialog(
 		"导出 Codex 存档 JSON",
 		DisplayServer.FILE_DIALOG_MODE_SAVE_FILE,
+		default_dir,
 		default_name,
 		_on_native_export_file_selected
 	):
 		return
+	export_dialog.current_dir = default_dir
 	export_dialog.current_file = default_name
 	export_dialog.popup_centered(Vector2i(760, 520))
 
 
 func _open_import_archive_dialog() -> void:
+	var default_dir := _archive_dialog_default_dir()
 	if _show_native_file_dialog(
 		"导入 Codex 存档 JSON",
 		DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
+		default_dir,
 		"",
 		_on_native_import_file_selected
 	):
 		return
+	import_dialog.current_dir = default_dir
 	import_dialog.popup_centered(Vector2i(760, 520))
 
 
-func _show_native_file_dialog(title: String, mode: DisplayServer.FileDialogMode, filename: String, callback: Callable) -> bool:
+func _show_native_file_dialog(title: String, mode: DisplayServer.FileDialogMode, default_dir: String, filename: String, callback: Callable) -> bool:
 	if not DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE):
 		return false
-	var default_dir := ProjectSettings.globalize_path("user://")
 	var filters := PackedStringArray(["*.json;JSON 文件;application/json"])
 	var error := DisplayServer.file_dialog_show(title, default_dir, filename, false, mode, filters, callback)
 	if error != OK:
-		log_label.text = "无法打开 Windows 文件选择器，已切换到内置文件窗口。"
+		log_label.text = "无法打开系统文件选择器，已切换到内置文件窗口。"
 		return false
 	return true
+
+
+func _archive_dialog_default_dir() -> String:
+	var dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	if dir == "" or not DirAccess.dir_exists_absolute(dir):
+		dir = ProjectSettings.globalize_path("user://")
+	return dir
 
 
 func _on_native_export_file_selected(status: bool, selected_paths: PackedStringArray, _selected_filter_index: int) -> void:
@@ -1023,10 +1035,25 @@ func _open_tool_archive_folder() -> void:
 	_open_folder(folder, "工具存档目录")
 
 
+func _to_native_path(path: String) -> String:
+	if OS.get_name() == "Windows":
+		return path.replace("/", "\\")
+	return path.replace("\\", "/")
+
+
 func _open_folder(folder: String, label: String) -> void:
-	var normalized_folder := folder.replace("/", "\\")
-	var exit_code := OS.execute("explorer.exe", [normalized_folder], [], false, false)
-	if exit_code == -1:
+	var normalized_folder := _to_native_path(folder)
+	var executable := ""
+	var args: Array[String] = [normalized_folder]
+	match OS.get_name():
+		"Windows":
+			executable = "explorer.exe"
+		"macOS":
+			executable = "open"
+		_:
+			executable = "xdg-open"
+	var exit_code := OS.execute(executable, args, [], false, false)
+	if exit_code != 0:
 		var shell_error := OS.shell_open(normalized_folder)
 		if shell_error != OK:
 			log_label.text = "无法打开%s: %s" % [label, normalized_folder]
@@ -1070,19 +1097,19 @@ func _run_backend(args: Array[String]) -> Dictionary:
 	if script_path == "":
 		return {"success": false, "error": "无法准备 Python 后端脚本。"}
 	var output_path := ProjectSettings.globalize_path("user://backend_result.json")
-	var output: Array = []
 	var full_args: Array[String] = [script_path, "--output-json", output_path]
 	if current_codex_dir != "":
 		full_args.append_array(["--codex-dir", current_codex_dir])
 	full_args.append_array(args)
 	var old_encoding := OS.get_environment("PYTHONIOENCODING")
 	OS.set_environment("PYTHONIOENCODING", "utf-8")
-	var exit_code := OS.execute("python", full_args, output, true, false)
+	var python_result := _execute_python_backend(full_args)
 	if old_encoding == "":
 		OS.unset_environment("PYTHONIOENCODING")
 	else:
 		OS.set_environment("PYTHONIOENCODING", old_encoding)
-	var text := "\n".join(output)
+	var exit_code := int(python_result.get("exit_code", -1))
+	var text := str(python_result.get("output", ""))
 	if exit_code != 0:
 		return {"success": false, "error": text}
 	if not FileAccess.file_exists(output_path):
@@ -1094,6 +1121,51 @@ func _run_backend(args: Array[String]) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {"success": false, "error": "后端返回的 JSON 无法解析。"}
 	return parsed
+
+
+func _execute_python_backend(args: Array[String]) -> Dictionary:
+	var errors: Array[String] = []
+	for executable in _python_executable_candidates():
+		if executable.is_absolute_path() and not FileAccess.file_exists(executable):
+			continue
+		var output: Array = []
+		var exit_code := OS.execute(executable, args, output, true, false)
+		var text := "\n".join(output)
+		if exit_code == -1:
+			if text != "":
+				errors.append("%s: %s" % [executable, text])
+			continue
+		return {
+			"exit_code": exit_code,
+			"output": text,
+			"executable": executable,
+		}
+	return {
+		"exit_code": -1,
+		"output": "找不到 Python 解释器。请安装 Python 3，或确认 python/python3 在 PATH 中。%s" % ("\n" + "\n".join(errors) if not errors.is_empty() else ""),
+	}
+
+
+func _python_executable_candidates() -> Array[String]:
+	var candidates: Array[String] = []
+	match OS.get_name():
+		"Windows":
+			candidates.append_array(["python", "python3"])
+		"macOS":
+			candidates.append_array([
+				"python3",
+				"python",
+				"/opt/homebrew/bin/python3",
+				"/usr/local/bin/python3",
+				"/usr/bin/python3",
+			])
+		_:
+			candidates.append_array(["python3", "python", "/usr/bin/python3", "/usr/local/bin/python3"])
+	var unique: Array[String] = []
+	for candidate in candidates:
+		if not unique.has(candidate):
+			unique.append(candidate)
+	return unique
 
 
 func _prepare_backend_script() -> String:

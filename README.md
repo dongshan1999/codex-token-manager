@@ -26,6 +26,8 @@ Godot desktop tool for viewing local Codex token usage and deleting session reco
 - `删除全部备份`: delete `.codex/deleted_sessions_backup`; also appends the displayed backup rows to `codex_deleted_session_archive.json`.
 - `保存当前显示`: save the currently filtered/sorted table rows to `codex_current_display_archive.json`.
 - `打开工具存档`: open the Godot `user://` folder where `codex_current_display_archive.json` and `codex_deleted_session_archive.json` are stored.
+- `导出存档`: export the current-display archive and deleted-session archive into one JSON file. The system file picker opens in Documents by default.
+- `导入存档`: import a JSON archive exported by this tool, or import a standalone current-display/deleted-session archive.
 - `显示归档`: include archived sessions in the table.
 - `显示备份`: include `.codex/deleted_sessions_backup` rows in the table.
 - `删除前备份`: controls whether raw session JSONL files are copied into `.codex/deleted_sessions_backup` before deletion. This does not affect the Godot JSON deletion archive; deleted row metadata is always saved.
@@ -38,12 +40,21 @@ Table header sorting:
 
 ## Data Sources
 
-The tool reads:
+The tool reads Codex data from the local user profile. On Windows:
 
 - `%USERPROFILE%\.codex\sessions`
 - `%USERPROFILE%\.codex\archived_sessions`
 - `%USERPROFILE%\.codex\state_5.sqlite`
 - `%USERPROFILE%\.codex\session_index.jsonl`
+
+On macOS:
+
+- `~/.codex/sessions`
+- `~/.codex/archived_sessions`
+- `~/.codex/state_5.sqlite`
+- `~/.codex/session_index.jsonl`
+
+If `CODEX_HOME` or `CODEX_DIR` is set, the tool checks that location first.
 
 ## Delete Behavior
 
@@ -51,6 +62,7 @@ Delete operations first back up session JSONL files under:
 
 ```text
 %USERPROFILE%\.codex\deleted_sessions_backup
+~/.codex/deleted_sessions_backup
 ```
 
 Then they remove matching records from:
@@ -82,3 +94,4 @@ tools/codex_usage_backend.py
 ```
 
 Python 3 must be available as `python` in PATH.
+On macOS, the app also tries `python3`, `/opt/homebrew/bin/python3`, `/usr/local/bin/python3`, and `/usr/bin/python3`.
