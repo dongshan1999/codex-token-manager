@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/session_browser_page.tscn" id="2_sessions"]
+[ext_resource type="PackedScene" path="res://scenes/usage_stats_page.tscn" id="3_usage"]
+[ext_resource type="PackedScene" path="res://scenes/components/usage_pricing_dialog.tscn" id="4_pricing_dialog"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -11,3 +14,95 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
+[node name="RootMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="MainStack" type="VBoxContainer" parent="RootMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleRow" type="HBoxContainer" parent="RootMargin/MainStack"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Codex Token Manager"
+theme_override_font_sizes/font_size = 22
+
+[node name="RefreshButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "刷新"
+tooltip_text = "重新读取 .codex 会话、归档、备份数据，并保存到当前存档 JSON。"
+
+[node name="DeleteSelectedButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "删除选中会话"
+tooltip_text = "删除选中会话在当前、归档、备份里的全部副本。"
+
+[node name="DeleteArchivedButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "删除全部归档"
+tooltip_text = "删除 .codex/archived_sessions 下的全部会话。"
+
+[node name="DeleteBackupsButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "删除全部备份"
+tooltip_text = "删除 .codex/deleted_sessions_backup 下的全部文件。"
+
+[node name="OpenArchiveButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "打开工具存档"
+tooltip_text = "打开保存当前显示和删除会话记录 JSON 的 Godot 工具存档目录。"
+
+[node name="ExportArchiveButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "导出存档"
+tooltip_text = "把当前显示存档和删除会话存档导出为一个 JSON 文件。"
+
+[node name="ImportArchiveButton" type="Button" parent="RootMargin/MainStack/TitleRow"]
+layout_mode = 2
+text = "导入存档"
+tooltip_text = "从 JSON 文件导入工具存档。支持合并存档，也支持单独的当前显示或删除存档。"
+
+[node name="MainTabs" type="TabContainer" parent="RootMargin/MainStack"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="会话记录" parent="RootMargin/MainStack/MainTabs" instance=ExtResource("2_sessions")]
+layout_mode = 2
+
+[node name="使用统计" parent="RootMargin/MainStack/MainTabs" instance=ExtResource("3_usage")]
+layout_mode = 2
+
+[node name="LogLabel" type="Label" parent="RootMargin/MainStack"]
+layout_mode = 2
+text = "就绪"
+autowrap_mode = 3
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
+
+[node name="ExportDialog" type="FileDialog" parent="."]
+title = "导出 Codex 存档 JSON"
+filters = PackedStringArray("*.json ; JSON 文件")
+file_mode = 4
+access = 2
+
+[node name="ImportDialog" type="FileDialog" parent="."]
+title = "导入 Codex 存档 JSON"
+filters = PackedStringArray("*.json ; JSON 文件")
+file_mode = 0
+access = 2
+
+[node name="UsagePricingDialog" parent="." instance=ExtResource("4_pricing_dialog")]

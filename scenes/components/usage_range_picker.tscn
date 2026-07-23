@@ -1,0 +1,237 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/usage_range_picker.gd" id="1_range_picker"]
+
+[node name="UsageRangePicker" type="HBoxContainer"]
+theme_override_constants/separation = 6
+script = ExtResource("1_range_picker")
+
+[node name="TriggerButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(132, 0)
+text = "当天"
+tooltip_text = "选择使用统计时间范围"
+
+[node name="LiveTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+wait_time = 60.0
+
+[node name="PopupPanel" type="PopupPanel" parent="."]
+unique_name_in_owner = true
+size = Vector2i(620, 320)
+
+[node name="Margin" type="MarginContainer" parent="PopupPanel"]
+offset_right = 620.0
+offset_bottom = 320.0
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Stack" type="VBoxContainer" parent="PopupPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PresetRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TodayButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "当天"
+
+[node name="OneDayButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "1d"
+
+[node name="SevenDayButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "7d"
+
+[node name="FourteenDayButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "14d"
+
+[node name="ThirtyDayButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "30d"
+
+[node name="AllButton" type="Button" parent="PopupPanel/Margin/Stack/PresetRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+toggle_mode = true
+text = "全部"
+
+[node name="ContentRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="FieldsColumn" type="VBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 0)
+theme_override_constants/separation = 8
+
+[node name="HintLabel" type="Label" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "支持日期与时间"
+
+[node name="StartPanel" type="PanelContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="StartMargin" type="MarginContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="StartStack" type="VBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel/StartMargin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="StartLabel" type="Label" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel/StartMargin/StartStack"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "开始时间"
+
+[node name="StartEditRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel/StartMargin/StartStack"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StartDateEdit" type="LineEdit" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel/StartMargin/StartStack/StartEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "YYYY/MM/DD"
+
+[node name="StartTimeEdit" type="LineEdit" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/StartPanel/StartMargin/StartStack/StartEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(72, 0)
+placeholder_text = "HH:MM"
+
+[node name="EndPanel" type="PanelContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="EndMargin" type="MarginContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="EndStack" type="VBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel/EndMargin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="EndLabel" type="Label" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel/EndMargin/EndStack"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "结束时间"
+
+[node name="EndEditRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel/EndMargin/EndStack"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EndDateEdit" type="LineEdit" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel/EndMargin/EndStack/EndEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "YYYY/MM/DD"
+
+[node name="EndTimeEdit" type="LineEdit" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/EndPanel/EndMargin/EndStack/EndEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(72, 0)
+placeholder_text = "HH:MM"
+
+[node name="LiveEndCheck" type="CheckBox" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "结束时间跟随当前时刻"
+
+[node name="ErrorLabel" type="Label" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "时间范围无效"
+autowrap_mode = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CancelButton" type="Button" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "取消"
+
+[node name="ConfirmButton" type="Button" parent="PopupPanel/Margin/Stack/ContentRow/FieldsColumn/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "确定"
+
+[node name="CalendarPanel" type="PanelContainer" parent="PopupPanel/Margin/Stack/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="CalendarMargin" type="MarginContainer" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="CalendarStack" type="VBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MonthRow" type="HBoxContainer" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack"]
+layout_mode = 2
+
+[node name="PrevMonthButton" type="Button" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack/MonthRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "‹"
+
+[node name="MonthButton" type="Button" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack/MonthRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+flat = true
+text = "2026年7月"
+
+[node name="NextMonthButton" type="Button" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack/MonthRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "›"
+
+[node name="WeekdayGrid" type="GridContainer" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 7
+
+[node name="DayGrid" type="GridContainer" parent="PopupPanel/Margin/Stack/ContentRow/CalendarPanel/CalendarMargin/CalendarStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+columns = 7

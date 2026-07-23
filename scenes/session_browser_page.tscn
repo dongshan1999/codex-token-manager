@@ -1,0 +1,163 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/session_browser_page.gd" id="1_session_page"]
+[ext_resource type="PackedScene" path="res://scenes/components/usage_range_picker.tscn" id="2_range_picker"]
+
+[node name="SessionBrowserPage" type="VBoxContainer"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+script = ExtResource("1_session_page")
+
+[node name="SummaryLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="FilterRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FilterLabel" type="Label" parent="FilterRow"]
+layout_mode = 2
+text = "筛选"
+
+[node name="FilterEdit" type="LineEdit" parent="FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="IncludeArchivedCheck" type="CheckBox" parent="FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "显示归档"
+
+[node name="IncludeBackupCheck" type="CheckBox" parent="FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "显示备份"
+
+[node name="IncludeDeletedArchiveCheck" type="CheckBox" parent="FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "显示删除存档"
+
+[node name="RangeLabel" type="Label" parent="FilterRow"]
+layout_mode = 2
+text = "时间"
+
+[node name="TimeRangePicker" parent="FilterRow" instance=ExtResource("2_range_picker")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SortHint" type="Label" parent="."]
+layout_mode = 2
+text = "左侧按项目目录分组；表头左键加入/切换排序，右键移除排序条件。"
+autowrap_mode = 3
+
+[node name="Split" type="HSplitContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SessionTree" type="Tree" parent="Split"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(420, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+columns = 5
+hide_root = true
+
+[node name="DetailPanel" type="VBoxContainer" parent="Split"]
+layout_mode = 2
+custom_minimum_size = Vector2(520, 0)
+theme_override_constants/separation = 8
+
+[node name="ActionRow" type="HBoxContainer" parent="Split/DetailPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OpenFolderButton" type="Button" parent="Split/DetailPanel/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "打开项目目录"
+tooltip_text = "打开当前对话记录的工作目录；如果目录不可用则打开会话文件所在目录。"
+
+[node name="CopyProjectButton" type="Button" parent="Split/DetailPanel/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "复制目录"
+
+[node name="CopyResumeButton" type="Button" parent="Split/DetailPanel/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "复制恢复命令"
+
+[node name="DetailHeaderLabel" type="RichTextLabel" parent="Split/DetailPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 112)
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+selection_enabled = true
+
+[node name="ConversationSplit" type="HSplitContainer" parent="Split/DetailPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ConversationPanel" type="VBoxContainer" parent="Split/DetailPanel/ConversationSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="ConversationTitle" type="HBoxContainer" parent="Split/DetailPanel/ConversationSplit/ConversationPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ConversationLabel" type="Label" parent="Split/DetailPanel/ConversationSplit/ConversationPanel/ConversationTitle"]
+layout_mode = 2
+text = "对话记录"
+theme_override_font_sizes/font_size = 15
+
+[node name="MessageScroll" type="ScrollContainer" parent="Split/DetailPanel/ConversationSplit/ConversationPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="MessageList" type="VBoxContainer" parent="Split/DetailPanel/ConversationSplit/ConversationPanel/MessageScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="DetailsLabel" type="RichTextLabel" parent="Split/DetailPanel/ConversationSplit/ConversationPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_active = true
+selection_enabled = true
+
+[node name="TocPanel" type="VBoxContainer" parent="Split/DetailPanel/ConversationSplit"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 0)
+theme_override_constants/separation = 6
+
+[node name="TocLabel" type="Label" parent="Split/DetailPanel/ConversationSplit/TocPanel"]
+layout_mode = 2
+text = "对话目录"
+theme_override_font_sizes/font_size = 15
+
+[node name="TocTree" type="Tree" parent="Split/DetailPanel/ConversationSplit/TocPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+columns = 1
+hide_root = true

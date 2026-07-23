@@ -1,0 +1,490 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/usage_stats_page.gd" id="1_usage_page"]
+[ext_resource type="Script" path="res://scripts/ui/usage_trend_chart.gd" id="2_chart"]
+[ext_resource type="PackedScene" path="res://scenes/components/usage_range_picker.tscn" id="3_range_picker"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.121569, 0.12549, 0.152941, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.203922, 0.211765, 0.25098, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.105882, 0.109804, 0.133333, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.188235, 0.196078, 0.231373, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_progress_bg"]
+bg_color = Color(0.164706, 0.168627, 0.192157, 1)
+border_color = Color(0.164706, 0.168627, 0.192157, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_progress_fill"]
+bg_color = Color(0.062745, 0.72549, 0.505882, 1)
+border_color = Color(0.062745, 0.72549, 0.505882, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="UsageStatsPage" type="VBoxContainer"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+script = ExtResource("1_usage_page")
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Scroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HeaderText" type="VBoxContainer" parent="Scroll/Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Scroll/Content/Header/HeaderText"]
+layout_mode = 2
+text = "使用统计"
+theme_override_font_sizes/font_size = 22
+
+[node name="Subtitle" type="Label" parent="Scroll/Content/Header/HeaderText"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "查看 AI 模型的使用情况和成本统计"
+
+[node name="UsageRefreshButton" type="Button" parent="Scroll/Content/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "刷新统计"
+tooltip_text = "重新读取 Codex token_count 事件并刷新统计页面。"
+
+[node name="FilterRow" type="HBoxContainer" parent="Scroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AppSegment" type="HBoxContainer" parent="Scroll/Content/FilterRow"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AllAppButton" type="Button" parent="Scroll/Content/FilterRow/AppSegment"]
+layout_mode = 2
+text = "全部"
+tooltip_text = "当前工具读取 Codex 本地会话数据。"
+
+[node name="CodexAppButton" type="Button" parent="Scroll/Content/FilterRow/AppSegment"]
+layout_mode = 2
+text = "Codex"
+tooltip_text = "当前工具读取 Codex 本地会话数据。"
+
+[node name="UsageSourceOption" type="OptionButton" parent="Scroll/Content/FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(136, 0)
+
+[node name="UsageModelOption" type="OptionButton" parent="Scroll/Content/FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+
+[node name="Spacer" type="Control" parent="Scroll/Content/FilterRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UsageRangePicker" parent="Scroll/Content/FilterRow" instance=ExtResource("3_range_picker")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HeroPanel" type="PanelContainer" parent="Scroll/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="HeroMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="HeroStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 16
+
+[node name="HeroTop" type="HBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MainMetric" type="HBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Bolt" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric"]
+layout_mode = 2
+custom_minimum_size = Vector2(42, 42)
+modulate = Color(0.22, 0.52, 1, 1)
+text = "⚡"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="MetricStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="MetricTitle" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric/MetricStack"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "真实消耗 Tokens"
+
+[node name="MetricRow" type="HBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric/MetricStack"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="UsageTotalTokensLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric/MetricStack/MetricRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0"
+theme_override_font_sizes/font_size = 32
+
+[node name="UsageTotalTokensHintLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/MainMetric/MetricStack/MetricRow"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "≈ 0"
+vertical_alignment = 2
+
+[node name="TotalsPanel" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="TotalsMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="TotalsRow" type="HBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="RequestsMetric" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="RequestsLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow/RequestsMetric"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "总请求数"
+theme_override_font_sizes/font_size = 11
+
+[node name="UsageRequestsLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow/RequestsMetric"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.22, 0.52, 1, 1)
+text = "0"
+theme_override_font_sizes/font_size = 15
+
+[node name="CostMetric" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="CostLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow/CostMetric"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "总成本"
+theme_override_font_sizes/font_size = 11
+
+[node name="UsageCostLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HeroTop/TotalsPanel/TotalsMargin/TotalsRow/CostMetric"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.08, 0.8, 0.45, 1)
+text = "$0.0000"
+theme_override_font_sizes/font_size = 15
+
+[node name="StatGrid" type="GridContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack"]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="InputCard" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 72)
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="InputMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/InputCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="InputStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/InputCard/InputMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="InputLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/InputCard/InputMargin/InputStack"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "新增输入"
+
+[node name="UsageInputLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/InputCard/InputMargin/InputStack"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.22, 0.52, 1, 1)
+text = "0"
+theme_override_font_sizes/font_size = 16
+
+[node name="OutputCard" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 72)
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="OutputMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/OutputCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="OutputStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/OutputCard/OutputMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="OutputTextLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/OutputCard/OutputMargin/OutputStack"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "Output"
+
+[node name="UsageOutputLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/OutputCard/OutputMargin/OutputStack"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.68, 0.32, 1, 1)
+text = "0"
+theme_override_font_sizes/font_size = 16
+
+[node name="CacheCreationCard" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 72)
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="CacheCreationMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheCreationCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="CacheCreationStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheCreationCard/CacheCreationMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CacheCreationTextLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheCreationCard/CacheCreationMargin/CacheCreationStack"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "缓存创建"
+
+[node name="UsageCacheCreationLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheCreationCard/CacheCreationMargin/CacheCreationStack"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.98, 0.45, 0.12, 1)
+text = "N/A"
+theme_override_font_sizes/font_size = 16
+
+[node name="CacheReadCard" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 72)
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="CacheReadMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheReadCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="CacheReadStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheReadCard/CacheReadMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CacheReadTextLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheReadCard/CacheReadMargin/CacheReadStack"]
+layout_mode = 2
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "缓存命中"
+
+[node name="UsageCacheReadLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/StatGrid/CacheReadCard/CacheReadMargin/CacheReadStack"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.08, 0.8, 0.45, 1)
+text = "0"
+theme_override_font_sizes/font_size = 16
+
+[node name="HitPanel" type="PanelContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="HitMargin" type="MarginContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="HitStack" type="VBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel/HitMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HitRow" type="HBoxContainer" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel/HitMargin/HitStack"]
+layout_mode = 2
+
+[node name="HitTextLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel/HitMargin/HitStack/HitRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+modulate = Color(0.68, 0.7, 0.76, 1)
+text = "缓存命中率"
+
+[node name="UsageHitRateLabel" type="Label" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel/HitMargin/HitStack/HitRow"]
+unique_name_in_owner = true
+layout_mode = 2
+modulate = Color(0.08, 0.8, 0.45, 1)
+text = "0%"
+
+[node name="UsageHitRateBar" type="ProgressBar" parent="Scroll/Content/HeroPanel/HeroMargin/HeroStack/HitPanel/HitMargin/HitStack"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 8)
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_progress_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_progress_fill")
+
+[node name="ChartPanel" type="PanelContainer" parent="Scroll/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="ChartMargin" type="MarginContainer" parent="Scroll/Content/ChartPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 12
+
+[node name="ChartStack" type="VBoxContainer" parent="Scroll/Content/ChartPanel/ChartMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChartTitleRow" type="HBoxContainer" parent="Scroll/Content/ChartPanel/ChartMargin/ChartStack"]
+layout_mode = 2
+
+[node name="ChartTitle" type="Label" parent="Scroll/Content/ChartPanel/ChartMargin/ChartStack/ChartTitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "使用趋势"
+theme_override_font_sizes/font_size = 17
+
+[node name="ChartHint" type="Label" parent="Scroll/Content/ChartPanel/ChartMargin/ChartStack/ChartTitleRow"]
+layout_mode = 2
+modulate = Color(0.58, 0.6, 0.67, 1)
+text = "按筛选时间自动切换小时 / 日期粒度"
+
+[node name="UsageChart" type="Control" parent="Scroll/Content/ChartPanel/ChartMargin/ChartStack"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 340)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("2_chart")
+
+[node name="PricingPanel" type="PanelContainer" parent="Scroll/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="PricingMargin" type="MarginContainer" parent="Scroll/Content/PricingPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="PricingStack" type="VBoxContainer" parent="Scroll/Content/PricingPanel/PricingMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PricingHeader" type="HBoxContainer" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PricingTitle" type="Label" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack/PricingHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+modulate = Color(0.78, 0.8, 0.86, 1)
+text = "配置各模型的 Token 成本（每百万）"
+
+[node name="AddPriceButton" type="Button" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack/PricingHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "+ 添加"
+
+[node name="EditPriceButton" type="Button" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack/PricingHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "编辑"
+
+[node name="DeletePriceButton" type="Button" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack/PricingHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "删除"
+
+[node name="ResetPriceButton" type="Button" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack/PricingHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "重置默认"
+
+[node name="UsagePricingTree" type="Tree" parent="Scroll/Content/PricingPanel/PricingMargin/PricingStack"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 280)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+columns = 8
+hide_root = true
