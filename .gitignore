@@ -1,8 +1,10 @@
 # Godot 4+ specific ignores
+.DS_Store
 .godot/
 /android/
 *.translation
 plugin_host/node_modules/
 plugin_host/data/
 builds/
-tools/__pycache__/codex_usage_backend.cpython-311.pyc
+tools/**/__pycache__/
+tools/**/*.pyc

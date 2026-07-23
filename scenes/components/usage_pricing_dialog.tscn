@@ -1,0 +1,66 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/usage_pricing_dialog.gd" id="1_dialog"]
+
+[node name="UsagePricingDialog" type="ConfirmationDialog"]
+title = "模型 Token 成本"
+script = ExtResource("1_dialog")
+
+[node name="PricingForm" type="GridContainer" parent="."]
+columns = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 8
+
+[node name="ModelLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "模型 ID"
+
+[node name="UsagePricingModelEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="DisplayLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "显示名称"
+
+[node name="UsagePricingDisplayEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="InputLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "输入成本 / 百万"
+
+[node name="UsagePricingInputEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="OutputLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "输出成本 / 百万"
+
+[node name="UsagePricingOutputEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="CacheReadLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "缓存命中 / 百万"
+
+[node name="UsagePricingCacheReadEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="CacheCreationLabel" type="Label" parent="PricingForm"]
+layout_mode = 2
+text = "缓存创建 / 百万"
+
+[node name="UsagePricingCacheCreationEdit" type="LineEdit" parent="PricingForm"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)

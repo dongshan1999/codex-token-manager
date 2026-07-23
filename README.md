@@ -4,6 +4,7 @@ Godot desktop tool for viewing local Codex token usage and deleting session reco
 
 ## Features
 
+- Groups Codex sessions by project directory.
 - Shows per-session token usage:
   - input tokens
   - cached input tokens
@@ -11,6 +12,9 @@ Godot desktop tool for viewing local Codex token usage and deleting session reco
   - output tokens
   - reasoning output tokens
   - total tokens
+- Shows conversation messages from Codex JSONL logs, with role-specific blocks for user, AI, tool, system, and developer messages.
+- Builds a conversation table of contents from real user prompts.
+- Displays and copies the current project directory and `codex resume <session-id>` command.
 - Filters by model, directory, title, file path, or session id.
 - Deletes a selected session.
 - Deletes all archived sessions.

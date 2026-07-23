@@ -6,9 +6,9 @@ const MAX_VISIBLE_ROWS := 500
 const DISPLAY_ARCHIVE_PATH := "user://codex_current_display_archive.json"
 const DELETED_ARCHIVE_PATH := "user://codex_deleted_session_archive.json"
 const SETTINGS_PATH := "user://codex_tool_settings.json"
+const USAGE_PRICING_PATH := "user://codex_usage_pricing.json"
 const EXPORT_ARCHIVE_VERSION := "1.0.0"
 const SAVE_VERSION := "1.0.0"
-
 var sessions: Array = []
 var filtered_sessions: Array = []
 var selected_id := ""
@@ -17,229 +17,638 @@ var pending_action := ""
 var pending_keys: Array[String] = []
 var current_codex_dir := ""
 var sort_rules: Array[Dictionary] = [
-	{"column": 0, "ascending": false},
+	{"column": 4, "ascending": false},
 ]
 
 var column_titles := [
-	"总M",
-	"输入M",
-	"缓存M",
-	"输出M",
-	"模型",
-	"档位",
+	"项目 / 会话",
+	"总",
+	"消息",
 	"状态",
-	"工作目录",
-	"标题",
+	"时间",
 ]
 
-var summary_label: Label
-var filter_edit: LineEdit
-var include_archived_check: CheckBox
-var include_backup_check: CheckBox
-var include_deleted_archive_check: CheckBox
-var time_range_option: OptionButton
-var session_tree: Tree
-var details_label: RichTextLabel
+var main_tabs: TabContainer
+var session_page
+var usage_page
 var log_label: Label
 var confirm_dialog: ConfirmationDialog
 var export_dialog: FileDialog
 var import_dialog: FileDialog
-var open_folder_button: Button
+var usage_pricing_dialog
+var usage_events: Array = []
+var usage_events_dirty := true
+var usage_pricing: Dictionary = {}
+var usage_pricing_edit_original_id := ""
 
 
 func _ready() -> void:
-	_build_ui()
+	_bind_ui()
+	_load_usage_pricing()
 	_load_settings()
 	_normalize_deleted_archive()
 	_refresh_sessions()
 
 
-func _build_ui() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+func _bind_ui() -> void:
+	main_tabs = $RootMargin/MainStack/MainTabs
+	session_page = get_node("RootMargin/MainStack/MainTabs/会话记录")
+	usage_page = get_node("RootMargin/MainStack/MainTabs/使用统计")
+	log_label = $RootMargin/MainStack/LogLabel
+	confirm_dialog = $ConfirmDialog
+	export_dialog = $ExportDialog
+	import_dialog = $ImportDialog
+	usage_pricing_dialog = $UsagePricingDialog
 
-	var root := MarginContainer.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("margin_left", 16)
-	root.add_theme_constant_override("margin_top", 16)
-	root.add_theme_constant_override("margin_right", 16)
-	root.add_theme_constant_override("margin_bottom", 16)
-	add_child(root)
+	$RootMargin/MainStack/TitleRow/RefreshButton.pressed.connect(_refresh_sessions)
+	$RootMargin/MainStack/TitleRow/DeleteSelectedButton.pressed.connect(_confirm_delete_selected)
+	$RootMargin/MainStack/TitleRow/DeleteArchivedButton.pressed.connect(_confirm_delete_archived)
+	$RootMargin/MainStack/TitleRow/DeleteBackupsButton.pressed.connect(_confirm_delete_backups)
+	$RootMargin/MainStack/TitleRow/OpenArchiveButton.pressed.connect(_open_tool_archive_folder)
+	$RootMargin/MainStack/TitleRow/ExportArchiveButton.pressed.connect(_open_export_archive_dialog)
+	$RootMargin/MainStack/TitleRow/ImportArchiveButton.pressed.connect(_open_import_archive_dialog)
 
-	var main := VBoxContainer.new()
-	main.add_theme_constant_override("separation", 10)
-	root.add_child(main)
+	main_tabs.tab_changed.connect(_on_main_tab_changed)
+	session_page.configure_columns(column_titles, [280, 70, 60, 76, 148])
+	session_page.update_column_titles(sort_rules)
+	session_page.filter_changed.connect(_apply_filter)
+	session_page.session_selected.connect(_on_session_selected)
+	session_page.column_title_clicked.connect(_on_column_title_clicked)
+	session_page.open_folder_requested.connect(_open_selected_session_folder)
+	session_page.copy_project_requested.connect(_copy_selected_project_dir)
+	session_page.copy_resume_requested.connect(_copy_selected_resume_command)
 
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 10)
-	main.add_child(title_row)
+	usage_page.refresh_requested.connect(func() -> void:
+		usage_events_dirty = true
+		_refresh_usage_stats()
+	)
+	usage_page.filter_changed.connect(func() -> void: _refresh_usage_stats(false))
+	usage_page.add_pricing_requested.connect(func() -> void: _open_usage_pricing_dialog(""))
+	usage_page.edit_pricing_requested.connect(_edit_selected_usage_pricing)
+	usage_page.delete_pricing_requested.connect(_delete_selected_usage_pricing)
+	usage_page.reset_pricing_requested.connect(_reset_usage_pricing)
 
-	var title := Label.new()
-	title.text = "Codex Token Manager"
-	title.add_theme_font_size_override("font_size", 22)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-
-	var refresh_button := Button.new()
-	refresh_button.text = "刷新"
-	refresh_button.tooltip_text = "重新读取 .codex 会话、归档、备份数据，并保存到当前存档 JSON。"
-	refresh_button.pressed.connect(_refresh_sessions)
-	title_row.add_child(refresh_button)
-
-	var delete_button := Button.new()
-	delete_button.text = "删除选中会话"
-	delete_button.tooltip_text = "删除选中会话在当前、归档、备份里的全部副本。"
-	delete_button.pressed.connect(_confirm_delete_selected)
-	title_row.add_child(delete_button)
-
-	var delete_archived_button := Button.new()
-	delete_archived_button.text = "删除全部归档"
-	delete_archived_button.tooltip_text = "删除 .codex/archived_sessions 下的全部会话。"
-	delete_archived_button.pressed.connect(_confirm_delete_archived)
-	title_row.add_child(delete_archived_button)
-
-	var delete_backups_button := Button.new()
-	delete_backups_button.text = "删除全部备份"
-	delete_backups_button.tooltip_text = "删除 .codex/deleted_sessions_backup 下的全部文件。"
-	delete_backups_button.pressed.connect(_confirm_delete_backups)
-	title_row.add_child(delete_backups_button)
-
-	var open_archive_button := Button.new()
-	open_archive_button.text = "打开工具存档"
-	open_archive_button.tooltip_text = "打开保存当前显示和删除会话记录 JSON 的 Godot 工具存档目录。"
-	open_archive_button.pressed.connect(_open_tool_archive_folder)
-	title_row.add_child(open_archive_button)
-
-	var export_archive_button := Button.new()
-	export_archive_button.text = "导出存档"
-	export_archive_button.tooltip_text = "把当前显示存档和删除会话存档导出为一个 JSON 文件。"
-	export_archive_button.pressed.connect(_open_export_archive_dialog)
-	title_row.add_child(export_archive_button)
-
-	var import_archive_button := Button.new()
-	import_archive_button.text = "导入存档"
-	import_archive_button.tooltip_text = "从 JSON 文件导入工具存档。支持合并存档，也支持单独的当前显示或删除存档。"
-	import_archive_button.pressed.connect(_open_import_archive_dialog)
-	title_row.add_child(import_archive_button)
-
-	summary_label = Label.new()
-	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	main.add_child(summary_label)
-
-	var filter_row := HBoxContainer.new()
-	filter_row.add_theme_constant_override("separation", 8)
-	main.add_child(filter_row)
-
-	var filter_label := Label.new()
-	filter_label.text = "筛选"
-	filter_row.add_child(filter_label)
-
-	filter_edit = LineEdit.new()
-	filter_edit.placeholder_text = "输入模型、目录、标题、文件路径或会话 ID"
-	filter_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	filter_edit.text_changed.connect(func(_text: String) -> void: _apply_filter())
-	filter_row.add_child(filter_edit)
-
-	include_archived_check = CheckBox.new()
-	include_archived_check.text = "显示归档"
-	include_archived_check.button_pressed = true
-	include_archived_check.toggled.connect(func(_pressed: bool) -> void: _apply_filter())
-	filter_row.add_child(include_archived_check)
-
-	include_backup_check = CheckBox.new()
-	include_backup_check.text = "显示备份"
-	include_backup_check.button_pressed = true
-	include_backup_check.toggled.connect(func(_pressed: bool) -> void: _apply_filter())
-	filter_row.add_child(include_backup_check)
-
-	include_deleted_archive_check = CheckBox.new()
-	include_deleted_archive_check.text = "显示删除存档"
-	include_deleted_archive_check.button_pressed = false
-	include_deleted_archive_check.toggled.connect(func(_pressed: bool) -> void: _apply_filter())
-	filter_row.add_child(include_deleted_archive_check)
-
-	var range_label := Label.new()
-	range_label.text = "时间"
-	filter_row.add_child(range_label)
-
-	time_range_option = OptionButton.new()
-	time_range_option.add_item("最近1天", 1)
-	time_range_option.add_item("最近一周", 7)
-	time_range_option.add_item("最近一个月", 30)
-	time_range_option.add_item("全部对话", 0)
-	time_range_option.select(3)
-	time_range_option.item_selected.connect(func(_index: int) -> void: _apply_filter())
-	filter_row.add_child(time_range_option)
-
-	var sort_hint := Label.new()
-	sort_hint.text = "表头左键加入/切换多列排序，右键移除排序条件；数字表示优先级。"
-	sort_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	main.add_child(sort_hint)
-
-	var split := HSplitContainer.new()
-	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main.add_child(split)
-
-	session_tree = Tree.new()
-	session_tree.columns = 9
-	session_tree.hide_root = true
-	session_tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	session_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	session_tree.select_mode = Tree.SELECT_SINGLE
-	_setup_tree_columns()
-	session_tree.item_selected.connect(_on_session_selected)
-	session_tree.column_title_clicked.connect(_on_column_title_clicked)
-	split.add_child(session_tree)
-
-	var detail_panel := VBoxContainer.new()
-	detail_panel.custom_minimum_size = Vector2(360, 0)
-	detail_panel.add_theme_constant_override("separation", 8)
-	split.add_child(detail_panel)
-
-	open_folder_button = Button.new()
-	open_folder_button.text = "打开会话文件夹"
-	open_folder_button.disabled = true
-	open_folder_button.pressed.connect(_open_selected_session_folder)
-	detail_panel.add_child(open_folder_button)
-
-	details_label = RichTextLabel.new()
-	details_label.fit_content = false
-	details_label.bbcode_enabled = true
-	details_label.scroll_active = true
-	details_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	detail_panel.add_child(details_label)
-
-	log_label = Label.new()
-	log_label.text = "就绪"
-	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	main.add_child(log_label)
-
-	confirm_dialog = ConfirmationDialog.new()
 	confirm_dialog.confirmed.connect(_run_pending_action)
-	add_child(confirm_dialog)
-
-	export_dialog = FileDialog.new()
-	export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	export_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	export_dialog.title = "导出 Codex 存档 JSON"
-	export_dialog.filters = PackedStringArray(["*.json ; JSON 文件"])
 	export_dialog.file_selected.connect(_export_archive_to_file)
-	add_child(export_dialog)
-
-	import_dialog = FileDialog.new()
-	import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	import_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	import_dialog.title = "导入 Codex 存档 JSON"
-	import_dialog.filters = PackedStringArray(["*.json ; JSON 文件"])
 	import_dialog.file_selected.connect(_import_archive_from_file)
-	add_child(import_dialog)
+	usage_pricing_dialog.confirmed.connect(_save_usage_pricing_dialog)
 
+
+func _on_main_tab_changed(tab: int) -> void:
+	if main_tabs == null:
+		return
+	if main_tabs.get_tab_title(tab) == "使用统计":
+		_refresh_usage_stats()
+
+
+func _refresh_usage_stats(load_events: bool = true) -> void:
+	if usage_page == null:
+		return
+	if load_events and usage_events_dirty:
+		_load_usage_events()
+	_populate_usage_filter_options()
+	var filtered := _usage_filtered_events()
+	_ensure_usage_pricing_for_models(usage_events)
+	var summary := _build_usage_summary(filtered)
+	_render_usage_summary(summary)
+	usage_page.set_trend_points(_build_usage_trend_points(filtered))
+	_render_usage_pricing_tree(filtered)
+
+
+func _load_usage_events() -> void:
+	var result := _run_backend(["usage-events"])
+	if not result.get("success", false):
+		if log_label != null:
+			log_label.text = "读取使用统计失败: %s" % str(result.get("error", "unknown error"))
+		usage_events = []
+		usage_events_dirty = false
+		return
+	var events = result.get("events", [])
+	usage_events = events if typeof(events) == TYPE_ARRAY else []
+	usage_events_dirty = false
+	if log_label != null:
+		log_label.text = "已读取使用统计事件: %d 条。" % usage_events.size()
+
+
+func _populate_usage_filter_options() -> void:
+	var source_set := {}
+	var model_set := {}
+	for event in usage_events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		source_set[str(event.get("source", "Codex"))] = true
+		model_set[str(event.get("model", "unknown"))] = true
+	usage_page.populate_filter_options(source_set.keys(), model_set.keys())
+
+
+func _usage_filtered_events() -> Array:
+	var source_filter: String = usage_page.selected_source()
+	var model_filter: String = usage_page.selected_model()
+	var bounds := _usage_range_bounds()
+	var start_unix := int(bounds.get("start", 0))
+	var end_unix := int(bounds.get("end", 0))
+	var filtered: Array = []
+	for event in usage_events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var unix := int(event.get("unix", 0))
+		if start_unix > 0 and unix < start_unix:
+			continue
+		if end_unix > 0 and unix > end_unix:
+			continue
+		if source_filter != "all" and str(event.get("source", "")) != source_filter:
+			continue
+		if model_filter != "all" and str(event.get("model", "")) != model_filter:
+			continue
+		filtered.append(event)
+	return filtered
+
+
+func _usage_range_bounds() -> Dictionary:
+	return usage_page.selected_range_bounds()
+
+
+func _start_of_today_unix() -> int:
+	return _start_of_local_day(int(Time.get_unix_time_from_system()))
+
+
+func _start_of_local_day(unix_time: int) -> int:
+	return _local_bucket_start(unix_time, 86400)
+
+
+func _local_bucket_start(unix_time: int, step: int) -> int:
+	var offset := _local_time_offset_seconds()
+	var local_unix := unix_time + offset
+	return int(floor(float(local_unix) / float(step))) * step - offset
+
+
+func _local_time_offset_seconds() -> int:
+	var zone := Time.get_time_zone_from_system()
+	return int(zone.get("bias", 0)) * 60
+
+
+func _build_usage_summary(events: Array) -> Dictionary:
+	var summary := {
+		"requests": 0,
+		"fresh_input_tokens": 0,
+		"output_tokens": 0,
+		"cached_input_tokens": 0,
+		"cache_creation_tokens": 0,
+		"real_total_tokens": 0,
+		"cost": 0.0,
+		"cache_hit_rate": 0.0,
+	}
+	for event in events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		_accumulate_usage(summary, event)
+	var cacheable := int(summary["fresh_input_tokens"]) + int(summary["cache_creation_tokens"]) + int(summary["cached_input_tokens"])
+	if cacheable > 0:
+		summary["cache_hit_rate"] = float(summary["cached_input_tokens"]) / float(cacheable)
+	return summary
+
+
+func _accumulate_usage(summary: Dictionary, event: Dictionary) -> void:
+	var input_tokens := int(event.get("input_tokens", 0))
+	var cache_read := int(event.get("cached_input_tokens", 0))
+	var cache_creation := int(event.get("cache_creation_tokens", 0))
+	var fresh_input = maxi(input_tokens - cache_read - cache_creation, 0)
+	var output_tokens := int(event.get("output_tokens", 0))
+	summary["requests"] = int(summary["requests"]) + 1
+	summary["fresh_input_tokens"] = int(summary["fresh_input_tokens"]) + fresh_input
+	summary["output_tokens"] = int(summary["output_tokens"]) + output_tokens
+	summary["cached_input_tokens"] = int(summary["cached_input_tokens"]) + cache_read
+	summary["cache_creation_tokens"] = int(summary["cache_creation_tokens"]) + cache_creation
+	summary["real_total_tokens"] = int(summary["real_total_tokens"]) + fresh_input + output_tokens + cache_read + cache_creation
+	summary["cost"] = float(summary["cost"]) + _usage_cost_for_event(event)
+
+
+func _usage_cost_for_event(event: Dictionary) -> float:
+	var pricing := _find_usage_pricing(str(event.get("model", "")))
+	var input_tokens := int(event.get("input_tokens", 0))
+	var cache_read := int(event.get("cached_input_tokens", 0))
+	var cache_creation := int(event.get("cache_creation_tokens", 0))
+	var fresh_input = maxi(input_tokens - cache_read - cache_creation, 0)
+	var output_tokens := int(event.get("output_tokens", 0))
+	return (
+		float(fresh_input) * float(pricing.get("input", 0.0))
+		+ float(output_tokens) * float(pricing.get("output", 0.0))
+		+ float(cache_read) * float(pricing.get("cache_read", 0.0))
+		+ float(cache_creation) * float(pricing.get("cache_creation", 0.0))
+	) / 1000000.0
+
+
+func _render_usage_summary(summary: Dictionary) -> void:
+	var real_total := int(summary.get("real_total_tokens", 0))
+	var cache_creation := int(summary.get("cache_creation_tokens", 0))
+	var hit_percent := clampf(float(summary.get("cache_hit_rate", 0.0)) * 100.0, 0.0, 100.0)
+	usage_page.set_summary_values(
+		_format_int_with_commas(real_total),
+		"≈ %s" % _format_usage_tokens_short(real_total, 2),
+		_format_int_with_commas(int(summary.get("requests", 0))),
+		_format_usd(float(summary.get("cost", 0.0)), 4),
+		_format_usage_tokens_short(int(summary.get("fresh_input_tokens", 0))),
+		_format_usage_tokens_short(int(summary.get("output_tokens", 0))),
+		"N/A" if cache_creation <= 0 else _format_usage_tokens_short(cache_creation),
+		_format_usage_tokens_short(int(summary.get("cached_input_tokens", 0))),
+		_format_percent(hit_percent),
+		hit_percent
+	)
+
+
+func _build_usage_trend_points(events: Array) -> Array:
+	if events.is_empty():
+		return []
+	var bounds := _usage_range_bounds()
+	var start_unix := int(bounds.get("start", 0))
+	var end_unix := int(bounds.get("end", int(Time.get_unix_time_from_system())))
+	if start_unix <= 0:
+		start_unix = int(events[0].get("unix", end_unix))
+	var duration := maxi(end_unix - start_unix, 0)
+	var hourly := duration <= 86400
+	var step := 3600 if hourly else 86400
+	var first_bucket := _local_bucket_start(start_unix, step)
+	var last_bucket := _local_bucket_start(end_unix, step)
+	var buckets := {}
+	var bucket_order: Array[int] = []
+	var bucket := first_bucket
+	while bucket <= last_bucket:
+		buckets[bucket] = _empty_usage_bucket()
+		bucket_order.append(bucket)
+		bucket += step
+	for event in events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var unix := int(event.get("unix", 0))
+		var key := _local_bucket_start(unix, step)
+		if not buckets.has(key):
+			buckets[key] = _empty_usage_bucket()
+			bucket_order.append(key)
+		var summary: Dictionary = buckets[key]
+		_accumulate_usage(summary, event)
+	bucket_order.sort()
+	var points: Array = []
+	for key in bucket_order:
+		var summary: Dictionary = buckets[key]
+		points.append({
+			"label": _format_usage_bucket_label(key, hourly),
+			"input_tokens": int(summary.get("fresh_input_tokens", 0)),
+			"output_tokens": int(summary.get("output_tokens", 0)),
+			"cached_input_tokens": int(summary.get("cached_input_tokens", 0)),
+			"cache_creation_tokens": int(summary.get("cache_creation_tokens", 0)),
+			"cost": float(summary.get("cost", 0.0)),
+		})
+	return points
+
+
+func _empty_usage_bucket() -> Dictionary:
+	return {
+		"requests": 0,
+		"fresh_input_tokens": 0,
+		"output_tokens": 0,
+		"cached_input_tokens": 0,
+		"cache_creation_tokens": 0,
+		"real_total_tokens": 0,
+		"cost": 0.0,
+	}
+
+
+func _format_usage_bucket_label(unix_time: int, hourly: bool) -> String:
+	var dict := Time.get_datetime_dict_from_unix_time(unix_time + _local_time_offset_seconds())
+	if hourly:
+		return "%02d/%02d %02d:00" % [int(dict.get("month", 0)), int(dict.get("day", 0)), int(dict.get("hour", 0))]
+	return "%02d/%02d" % [int(dict.get("month", 0)), int(dict.get("day", 0))]
+
+
+func _render_usage_pricing_tree(events: Array) -> void:
+	if usage_page == null:
+		return
+	var model_usage := _build_model_usage(events)
+	var keys: Array[String] = []
+	for key in usage_pricing.keys():
+		keys.append(str(key))
+	for model_key in model_usage.keys():
+		var model := str(model_key)
+		if not keys.has(model):
+			keys.append(model)
+	keys.sort_custom(func(a: String, b: String) -> bool:
+		var ar := int(model_usage.get(a, {}).get("requests", 0))
+		var br := int(model_usage.get(b, {}).get("requests", 0))
+		if ar != br:
+			return ar > br
+		return a < b
+	)
+	var rows: Array[Dictionary] = []
+	for model in keys:
+		var pricing: Dictionary = usage_pricing.get(model, _zero_pricing(model))
+		var usage: Dictionary = model_usage.get(model, _empty_usage_bucket())
+		rows.append({
+			"model": model,
+			"display_name": str(pricing.get("display_name", model)),
+			"input": "$%s" % _format_price_number(float(pricing.get("input", 0.0))),
+			"output": "$%s" % _format_price_number(float(pricing.get("output", 0.0))),
+			"cache_read": "$%s" % _format_price_number(float(pricing.get("cache_read", 0.0))),
+			"cache_creation": "$%s" % _format_price_number(float(pricing.get("cache_creation", 0.0))),
+			"requests": _format_int_with_commas(int(usage.get("requests", 0))),
+			"cost": _format_usd(float(usage.get("cost", 0.0)), 4),
+		})
+	usage_page.render_pricing_rows(rows)
+
+
+func _build_model_usage(events: Array) -> Dictionary:
+	var result := {}
+	for event in events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var pricing := _find_usage_pricing(str(event.get("model", "unknown")))
+		var model := str(pricing.get("model_id", _normalize_usage_model_id(str(event.get("model", "unknown")))))
+		if not result.has(model):
+			result[model] = _empty_usage_bucket()
+		var summary: Dictionary = result[model]
+		_accumulate_usage(summary, event)
+	return result
+
+
+func _find_usage_pricing(model: String) -> Dictionary:
+	var candidates := _usage_pricing_candidates(model)
+	for candidate in candidates:
+		if usage_pricing.has(candidate):
+			return usage_pricing[candidate]
+	var normalized := _normalize_usage_model_id(model)
+	var keys: Array[String] = []
+	for key in usage_pricing.keys():
+		keys.append(str(key))
+	keys.sort_custom(func(a: String, b: String) -> bool: return a.length() > b.length())
+	for key in keys:
+		if normalized == key or normalized.begins_with("%s-" % key):
+			return usage_pricing[key]
+	return _zero_pricing(model)
+
+
+func _usage_pricing_candidates(model: String) -> Array[String]:
+	var normalized := _normalize_usage_model_id(model)
+	var candidates: Array[String] = [model.strip_edges().to_lower(), normalized]
+	var stripped := _strip_model_date_suffix(normalized)
+	if stripped != normalized:
+		candidates.append(stripped)
+	if normalized.begins_with("claude-gpt-"):
+		candidates.append(normalized.substr("claude-".length()))
+	return candidates
+
+
+func _normalize_usage_model_id(model: String) -> String:
+	var text := model.strip_edges().to_lower().replace("@", "-")
+	if text.contains("/"):
+		var parts := text.split("/", false)
+		text = str(parts[parts.size() - 1])
+	if text.contains(":"):
+		text = text.split(":", false)[0]
+	return _strip_model_date_suffix(text)
+
+
+func _strip_model_date_suffix(model: String) -> String:
+	var parts := model.split("-", false)
+	if parts.size() >= 3:
+		var y := str(parts[parts.size() - 3])
+		var m := str(parts[parts.size() - 2])
+		var d := str(parts[parts.size() - 1])
+		if y.length() == 4 and m.length() == 2 and d.length() == 2 and _is_digits(y + m + d):
+			var kept := parts.slice(0, parts.size() - 3)
+			return "-".join(kept)
+	if parts.size() >= 2:
+		var last := str(parts[parts.size() - 1])
+		if last.length() == 8 and _is_digits(last):
+			var kept_short := parts.slice(0, parts.size() - 1)
+			return "-".join(kept_short)
+	return model
+
+
+func _is_digits(text: String) -> bool:
+	if text == "":
+		return false
+	for i in range(text.length()):
+		var code := text.unicode_at(i)
+		if code < 48 or code > 57:
+			return false
+	return true
+
+
+func _zero_pricing(model: String) -> Dictionary:
+	return {
+		"model_id": _normalize_usage_model_id(model),
+		"display_name": model if model != "" else "Unknown",
+		"input": 0.0,
+		"output": 0.0,
+		"cache_read": 0.0,
+		"cache_creation": 0.0,
+	}
+
+
+func _load_usage_pricing() -> void:
+	usage_pricing = _default_usage_pricing()
+	var saved := _read_json_file(USAGE_PRICING_PATH)
+	var rows = saved.get("models", [])
+	if typeof(rows) == TYPE_ARRAY:
+		for row in rows:
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var model_id := _normalize_usage_model_id(str(row.get("model_id", "")))
+			if model_id == "":
+				continue
+			usage_pricing[model_id] = {
+				"model_id": model_id,
+				"display_name": str(row.get("display_name", model_id)),
+				"input": float(row.get("input", 0.0)),
+				"output": float(row.get("output", 0.0)),
+				"cache_read": float(row.get("cache_read", 0.0)),
+				"cache_creation": float(row.get("cache_creation", 0.0)),
+			}
+
+
+func _default_usage_pricing() -> Dictionary:
+	var data := {}
+	_seed_usage_price(data, "gpt-5.6", "GPT-5.6 Sol", 5.0, 30.0, 0.50, 6.25)
+	_seed_usage_price(data, "gpt-5.6-terra", "GPT-5.6 Terra", 2.50, 15.0, 0.25, 3.125)
+	_seed_usage_price(data, "gpt-5.6-luna", "GPT-5.6 Luna", 1.0, 6.0, 0.10, 1.25)
+	_seed_usage_price(data, "gpt-5.5", "GPT-5.5", 5.0, 30.0, 0.50, 0.0)
+	_seed_usage_price(data, "gpt-5.4", "GPT-5.4", 2.50, 15.0, 0.25, 0.0)
+	_seed_usage_price(data, "gpt-5.4-mini", "GPT-5.4 Mini", 0.75, 4.50, 0.075, 0.0)
+	_seed_usage_price(data, "gpt-5.2", "GPT-5.2", 1.75, 14.0, 0.175, 0.0)
+	_seed_usage_price(data, "gpt-5.3-codex", "GPT-5.3 Codex", 1.75, 14.0, 0.175, 0.0)
+	_seed_usage_price(data, "gpt-5.1", "GPT-5.1", 1.25, 10.0, 0.125, 0.0)
+	_seed_usage_price(data, "gpt-5", "GPT-5", 1.25, 10.0, 0.125, 0.0)
+	_seed_usage_price(data, "gpt-5-codex", "GPT-5 Codex", 1.25, 10.0, 0.125, 0.0)
+	_seed_usage_price(data, "gpt-5-mini", "GPT-5 Mini", 0.25, 2.0, 0.025, 0.0)
+	_seed_usage_price(data, "gpt-5-nano", "GPT-5 Nano", 0.05, 0.40, 0.005, 0.0)
+	_seed_usage_price(data, "gpt-4.1", "GPT-4.1", 2.0, 8.0, 0.50, 0.0)
+	_seed_usage_price(data, "o3", "OpenAI o3", 2.0, 8.0, 0.50, 0.0)
+	_seed_usage_price(data, "o4-mini", "OpenAI o4-mini", 1.10, 4.40, 0.275, 0.0)
+	_seed_usage_price(data, "claude-fable-5", "Claude Fable 5", 10.0, 50.0, 1.0, 12.50)
+	_seed_usage_price(data, "claude-mythos-5", "Claude Mythos 5", 10.0, 50.0, 1.0, 12.50)
+	_seed_usage_price(data, "claude-opus-4-8", "Claude Opus 4.8", 5.0, 25.0, 0.50, 6.25)
+	_seed_usage_price(data, "claude-sonnet-5", "Claude Sonnet 5", 3.0, 15.0, 0.30, 3.75)
+	_seed_usage_price(data, "claude-sonnet-4-6", "Claude Sonnet 4.6", 3.0, 15.0, 0.30, 3.75)
+	_seed_usage_price(data, "claude-3-5-sonnet", "Claude 3.5 Sonnet", 3.0, 15.0, 0.30, 3.75)
+	_seed_usage_price(data, "claude-3-5-haiku", "Claude 3.5 Haiku", 0.80, 4.0, 0.08, 1.0)
+	_seed_usage_price(data, "gemini-2.5-pro", "Gemini 2.5 Pro", 1.25, 10.0, 0.125, 0.0)
+	_seed_usage_price(data, "gemini-2.5-flash", "Gemini 2.5 Flash", 0.30, 2.50, 0.03, 0.0)
+	_seed_usage_price(data, "glm-5.1", "GLM-5.1", 1.40, 4.40, 0.26, 0.0)
+	_seed_usage_price(data, "deepseek-v4-pro", "DeepSeek V4 Pro", 0.435, 0.87, 0.003625, 0.0)
+	_seed_usage_price(data, "qwen3.5-plus", "Qwen3.5 Plus", 0.26, 1.56, 0.052, 0.0)
+	_seed_usage_price(data, "kimi-k2.5", "Kimi K2.5", 0.60, 3.0, 0.10, 0.0)
+	return data
+
+
+func _seed_usage_price(data: Dictionary, model_id: String, display_name: String, input_cost: float, output_cost: float, cache_read: float, cache_creation: float) -> void:
+	var normalized := _normalize_usage_model_id(model_id)
+	data[normalized] = {
+		"model_id": normalized,
+		"display_name": display_name,
+		"input": input_cost,
+		"output": output_cost,
+		"cache_read": cache_read,
+		"cache_creation": cache_creation,
+	}
+
+
+func _save_usage_pricing() -> void:
+	var rows: Array = []
+	var keys: Array[String] = []
+	for key in usage_pricing.keys():
+		keys.append(str(key))
+	keys.sort()
+	for key in keys:
+		var pricing: Dictionary = usage_pricing[key]
+		rows.append({
+			"model_id": key,
+			"display_name": str(pricing.get("display_name", key)),
+			"input": float(pricing.get("input", 0.0)),
+			"output": float(pricing.get("output", 0.0)),
+			"cache_read": float(pricing.get("cache_read", 0.0)),
+			"cache_creation": float(pricing.get("cache_creation", 0.0)),
+		})
+	_write_json_file(USAGE_PRICING_PATH, {"version": SAVE_VERSION, "models": rows})
+
+
+func _ensure_usage_pricing_for_models(events: Array) -> void:
+	var changed := false
+	for event in events:
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		var model := str(event.get("model", "")).strip_edges()
+		if model == "":
+			continue
+		var matched := _find_usage_pricing(model)
+		var matched_id := str(matched.get("model_id", ""))
+		if matched_id != "" and usage_pricing.has(matched_id):
+			continue
+		var normalized := _normalize_usage_model_id(model)
+		if not usage_pricing.has(normalized):
+			usage_pricing[normalized] = _zero_pricing(model)
+			changed = true
+	if changed:
+		_save_usage_pricing()
+
+
+func _open_usage_pricing_dialog(model_id: String) -> void:
+	usage_pricing_edit_original_id = _normalize_usage_model_id(model_id)
+	var pricing: Dictionary = usage_pricing.get(usage_pricing_edit_original_id, _zero_pricing(model_id))
+	usage_pricing_dialog.show_pricing(usage_pricing_edit_original_id, pricing)
+
+
+func _save_usage_pricing_dialog() -> void:
+	var values: Dictionary = usage_pricing_dialog.values()
+	var model_id := _normalize_usage_model_id(str(values.get("model_id", "")))
+	if model_id == "":
+		log_label.text = "模型 ID 不能为空。"
+		return
+	if usage_pricing_edit_original_id != "" and usage_pricing_edit_original_id != model_id:
+		usage_pricing.erase(usage_pricing_edit_original_id)
+	usage_pricing[model_id] = {
+		"model_id": model_id,
+		"display_name": str(values.get("display_name", "")).strip_edges() if str(values.get("display_name", "")).strip_edges() != "" else model_id,
+		"input": float(values.get("input", "0")),
+		"output": float(values.get("output", "0")),
+		"cache_read": float(values.get("cache_read", "0")),
+		"cache_creation": float(values.get("cache_creation", "0")),
+	}
+	_save_usage_pricing()
+	_refresh_usage_stats(false)
+	log_label.text = "已保存模型成本: %s" % model_id
+
+
+func _selected_usage_pricing_model() -> String:
+	if usage_page == null:
+		return ""
+	return usage_page.selected_pricing_model()
+
+
+func _edit_selected_usage_pricing() -> void:
+	var model := _selected_usage_pricing_model()
+	if model == "":
+		log_label.text = "请先选择一个模型成本行。"
+		return
+	_open_usage_pricing_dialog(model)
+
+
+func _delete_selected_usage_pricing() -> void:
+	var model := _selected_usage_pricing_model()
+	if model == "":
+		log_label.text = "请先选择一个模型成本行。"
+		return
+	usage_pricing.erase(model)
+	_save_usage_pricing()
+	_refresh_usage_stats(false)
+	log_label.text = "已删除模型成本: %s" % model
+
+
+func _reset_usage_pricing() -> void:
+	usage_pricing = _default_usage_pricing()
+	_ensure_usage_pricing_for_models(usage_events)
+	_save_usage_pricing()
+	_refresh_usage_stats(false)
+	log_label.text = "已重置使用统计模型成本。"
+
+
+func _format_int_with_commas(value: int) -> String:
+	var text := str(abs(value))
+	var result := ""
+	var count := 0
+	for i in range(text.length() - 1, -1, -1):
+		if count > 0 and count % 3 == 0:
+			result = "," + result
+		result = text.substr(i, 1) + result
+		count += 1
+	return ("-" if value < 0 else "") + result
+
+
+func _format_usage_tokens_short(value: int, decimals: int = 1) -> String:
+	if value >= 100000000:
+		return "%.2f 亿" % (float(value) / 100000000.0)
+	if value >= 10000:
+		var token_format := "%." + str(decimals) + "f 万"
+		return token_format % (float(value) / 10000.0)
+	return _format_int_with_commas(value)
+
+
+func _format_usd(value: float, digits: int) -> String:
+	var usd_format := "$%." + str(digits) + "f"
+	return usd_format % value
+
+
+func _format_percent(value: float) -> String:
+	return "%.0f%%" % value if value >= 99.95 else "%.1f%%" % value
+
+
+func _format_price_number(value: float) -> String:
+	if absf(value - roundf(value)) < 0.00001:
+		return "%d" % int(roundf(value))
+	return "%.4f" % value
 
 func _setup_tree_columns() -> void:
-	var widths := [80, 80, 90, 80, 95, 75, 105, 260, 340]
-	session_tree.set_column_titles_visible(true)
-	for i in range(column_titles.size()):
-		session_tree.set_column_title(i, column_titles[i])
-		session_tree.set_column_custom_minimum_width(i, widths[i])
+	if session_page == null:
+		return
+	session_page.configure_columns(column_titles, [280, 70, 60, 76, 148])
 	_update_column_titles()
 
 
@@ -256,35 +665,27 @@ func _refresh_sessions() -> void:
 		_save_settings()
 	sessions = result.get("sessions", [])
 	sessions.append_array(_deleted_archive_rows())
+	usage_events_dirty = true
 	_save_current_display_archive()
 	_apply_filter()
+	if main_tabs != null and main_tabs.get_tab_title(main_tabs.current_tab) == "使用统计":
+		_refresh_usage_stats()
 	log_label.text = "已读取 %s 并保存当前存档，共 %d 条记录" % [current_codex_dir, sessions.size()]
 
 
 func _update_summary(summary: Dictionary) -> void:
-	summary_label.text = (
-		"行数 %d | 总 %.2fM | 输入 %.2fM | 缓存 %.2fM | 非缓存 %.2fM | 输出 %.2fM | 推理 %.2fM"
-		% [
-			int(summary.get("sessions", 0)),
-			_to_million(summary.get("total_tokens", 0)),
-			_to_million(summary.get("input_tokens", 0)),
-			_to_million(summary.get("cached_input_tokens", 0)),
-			_to_million(summary.get("uncached_input_tokens", 0)),
-			_to_million(summary.get("output_tokens", 0)),
-			_to_million(summary.get("reasoning_output_tokens", 0)),
-		]
-	)
+	session_page.render_summary(summary)
 
 
 func _apply_filter() -> void:
-	var query := filter_edit.text.strip_edges().to_lower()
+	var query: String = session_page.filter_query()
 	filtered_sessions.clear()
 	for row in sessions:
-		if not include_archived_check.button_pressed and row.get("storage", "") == "archived":
+		if not session_page.include_archived() and row.get("storage", "") == "archived":
 			continue
-		if not include_backup_check.button_pressed and row.get("storage", "") == "backup":
+		if not session_page.include_backup() and row.get("storage", "") == "backup":
 			continue
-		if not include_deleted_archive_check.button_pressed and row.get("storage", "") == "deleted_archive":
+		if not session_page.include_deleted_archive() and row.get("storage", "") == "deleted_archive":
 			continue
 		if not _row_in_selected_time_range(row):
 			continue
@@ -350,18 +751,12 @@ func _compare_session_rows(a: Dictionary, b: Dictionary) -> bool:
 func _sort_value(row: Dictionary, column: int):
 	match column:
 		0:
-			return int(row.get("total_tokens", 0))
+			return "%s %s" % [str(row.get("cwd", "")).to_lower(), str(row.get("title", "")).to_lower()]
 		1:
-			return int(row.get("input_tokens", 0))
+			return int(row.get("total_tokens", 0))
 		2:
-			return int(row.get("cached_input_tokens", 0))
+			return int(row.get("message_count", 0))
 		3:
-			return int(row.get("output_tokens", 0))
-		4:
-			return str(row.get("model", "")).to_lower()
-		5:
-			return str(row.get("reasoning_effort", "")).to_lower()
-		6:
 			match str(row.get("storage", "")):
 				"active":
 					return 0
@@ -373,12 +768,10 @@ func _sort_value(row: Dictionary, column: int):
 					return 3
 				_:
 					return 9
-		7:
-			return str(row.get("cwd", "")).to_lower()
-		8:
-			return str(row.get("title", "")).to_lower()
+		4:
+			return _row_unix_time(row)
 		_:
-			return int(row.get("total_tokens", 0))
+			return _row_unix_time(row)
 
 
 func _compare_values(a, b) -> int:
@@ -390,24 +783,20 @@ func _compare_values(a, b) -> int:
 
 
 func _update_column_titles() -> void:
-	if session_tree == null:
+	if session_page == null:
 		return
-	for i in range(column_titles.size()):
-		var suffix := ""
-		var rule_index := _find_sort_rule_index(i)
-		if rule_index != -1:
-			var ascending := bool(sort_rules[rule_index].get("ascending", true))
-			suffix = " %s%d" % ["^" if ascending else "v", rule_index + 1]
-		session_tree.set_column_title(i, "%s%s" % [column_titles[i], suffix])
+	session_page.update_column_titles(sort_rules)
 
 
 func _row_matches_query(row: Dictionary, query: String) -> bool:
-	var haystack := "%s %s %s %s %s %s %s %s" % [
+	var haystack := "%s %s %s %s %s %s %s %s %s %s" % [
 		row.get("id", ""),
 		row.get("model", ""),
 		row.get("reasoning_effort", ""),
 		row.get("cwd", ""),
 		row.get("title", ""),
+		row.get("summary", ""),
+		row.get("resume_command", ""),
 		row.get("session_file", ""),
 		row.get("deleted_action", ""),
 		row.get("deleted_at_text", ""),
@@ -416,41 +805,63 @@ func _row_matches_query(row: Dictionary, query: String) -> bool:
 
 
 func _render_tree() -> void:
-	session_tree.clear()
-	var root := session_tree.create_item()
-	var count := mini(filtered_sessions.size(), MAX_VISIBLE_ROWS)
-	for i in range(count):
-		var row: Dictionary = filtered_sessions[i]
-		var item := session_tree.create_item(root)
-		item.set_metadata(0, row.get("row_key", ""))
-		item.set_text(0, "%.2f" % _to_million(row.get("total_tokens", 0)))
-		item.set_text(1, "%.2f" % _to_million(row.get("input_tokens", 0)))
-		item.set_text(2, "%.2f" % _to_million(row.get("cached_input_tokens", 0)))
-		item.set_text(3, "%.2f" % _to_million(row.get("output_tokens", 0)))
-		item.set_text(4, str(row.get("model", "")))
-		item.set_text(5, str(row.get("reasoning_effort", "")))
-		item.set_text(6, _storage_label(str(row.get("storage", ""))))
-		item.set_text(7, _shorten_path(str(row.get("cwd", ""))))
-		item.set_text(8, str(row.get("title", "")))
+	session_page.render_tree(filtered_sessions, MAX_VISIBLE_ROWS)
 	if filtered_sessions.size() > MAX_VISIBLE_ROWS:
 		log_label.text = "筛选结果 %d 条，仅显示前 %d 条。" % [filtered_sessions.size(), MAX_VISIBLE_ROWS]
 	selected_id = ""
 	selected_row_key = ""
-	open_folder_button.disabled = true
-	details_label.text = "选择一个会话查看详情。"
+	session_page.reset_detail()
 
 
-func _on_session_selected() -> void:
-	var item := session_tree.get_selected()
-	if item == null:
+func _on_session_selected(row_key: String) -> void:
+	selected_row_key = row_key
+	if selected_row_key.begins_with("project|"):
 		return
-	selected_row_key = str(item.get_metadata(0))
 	var row := _find_session_by_key(selected_row_key)
 	if row.is_empty():
 		return
 	selected_id = str(row.get("id", ""))
-	open_folder_button.disabled = false
-	details_label.text = _format_details(row)
+	session_page.set_action_buttons_enabled(
+		true,
+		str(row.get("cwd", "")).strip_edges() != "",
+		str(row.get("resume_command", "")).strip_edges() != ""
+	)
+	_render_session_detail(row)
+
+
+func _render_session_detail(row: Dictionary) -> void:
+	session_page.set_detail_header(_format_session_header(row))
+	session_page.clear_toc()
+	var session_file := str(row.get("session_file", ""))
+	if str(row.get("storage", "")) == "deleted_archive" or session_file == "":
+		_show_detail_text(_format_details(row))
+		return
+	if not FileAccess.file_exists(session_file):
+		_show_detail_text("%s\n\n[color=#ef4444]会话文件不存在，无法读取对话内容。[/color]" % _format_details(row))
+		return
+
+	_show_detail_text("正在读取对话内容...")
+	var result := _run_backend(["messages", "--session-file", session_file])
+	if not result.get("success", false):
+		_show_detail_text("%s\n\n[color=#ef4444]读取对话失败: %s[/color]" % [
+			_format_details(row),
+			_bbcode_escape(str(result.get("error", "unknown error"))),
+		])
+		return
+	var messages = result.get("messages", [])
+	if typeof(messages) != TYPE_ARRAY:
+		messages = []
+	row["message_count"] = int(result.get("message_count", messages.size()))
+	session_page.render_conversation(messages)
+	log_label.text = "已读取对话: %s，%d 条消息。" % [_session_title(row), messages.size()]
+
+
+func _render_conversation(messages: Array) -> void:
+	session_page.render_conversation(messages)
+
+
+func _show_detail_text(text: String) -> void:
+	session_page.show_detail_text(text)
 
 
 func _open_selected_session_folder() -> void:
@@ -461,15 +872,45 @@ func _open_selected_session_folder() -> void:
 	if row.is_empty():
 		log_label.text = "没有找到选中会话。"
 		return
+	var project_dir := _to_native_path(str(row.get("cwd", "")).strip_edges())
+	if project_dir != "" and DirAccess.dir_exists_absolute(project_dir):
+		_open_folder(project_dir, "项目目录")
+		return
 	var session_file := str(row.get("session_file", ""))
 	if session_file == "":
-		log_label.text = "选中记录没有文件路径。"
+		log_label.text = "选中记录没有可打开的项目目录或文件路径。"
 		return
 	var folder_path := _to_native_path(session_file.get_base_dir())
 	if not DirAccess.dir_exists_absolute(folder_path):
 		log_label.text = "文件夹不存在: %s" % folder_path
 		return
 	_open_folder(folder_path, "文件夹")
+
+
+func _copy_selected_project_dir() -> void:
+	if selected_row_key == "":
+		log_label.text = "请先选择一个会话。"
+		return
+	var row := _find_session_by_key(selected_row_key)
+	var project_dir := str(row.get("cwd", "")).strip_edges()
+	if project_dir == "":
+		log_label.text = "选中会话没有项目目录。"
+		return
+	DisplayServer.clipboard_set(project_dir)
+	log_label.text = "已复制项目目录: %s" % project_dir
+
+
+func _copy_selected_resume_command() -> void:
+	if selected_row_key == "":
+		log_label.text = "请先选择一个会话。"
+		return
+	var row := _find_session_by_key(selected_row_key)
+	var command := str(row.get("resume_command", "")).strip_edges()
+	if command == "":
+		log_label.text = "选中会话没有恢复命令。"
+		return
+	DisplayServer.clipboard_set(command)
+	log_label.text = "已复制恢复命令: %s" % command
 
 
 func _format_details(row: Dictionary) -> String:
@@ -485,7 +926,10 @@ func _format_details(row: Dictionary) -> String:
 		+ "[b]Model[/b]\n%s %s\n\n"
 		+ "[b]Status[/b]\n%s\n\n"
 		+ "[b]Token[/b]\nTotal: %.2fM\nInput: %.2fM\nCached Input: %.2fM\nUncached Input: %.2fM\nOutput: %.2fM\nReasoning Output: %.2fM\n\n"
+		+ "[b]Messages[/b]\n%d\n\n"
 		+ "[b]Directory[/b]\n%s\n\n"
+		+ "[b]Resume[/b]\n%s\n\n"
+		+ "[b]Summary[/b]\n%s\n\n"
 		+ "[b]Session File[/b]\n%s%s"
 	) % [
 		row.get("title", ""),
@@ -499,10 +943,38 @@ func _format_details(row: Dictionary) -> String:
 		_to_million(row.get("uncached_input_tokens", 0)),
 		_to_million(row.get("output_tokens", 0)),
 		_to_million(row.get("reasoning_output_tokens", 0)),
+		int(row.get("message_count", 0)),
 		row.get("cwd", ""),
+		row.get("resume_command", ""),
+		row.get("summary", ""),
 		row.get("session_file", ""),
 		deleted_info,
 	]
+
+
+func _format_session_header(row: Dictionary) -> String:
+	return (
+		"[b][font_size=18]%s[/font_size][/b]\n"
+		+ "[color=#8b949e]Session[/color] %s    [color=#8b949e]时间[/color] %s    [color=#8b949e]状态[/color] %s\n"
+		+ "[color=#8b949e]当前目录[/color] %s\n"
+		+ "[color=#8b949e]恢复命令[/color] [code]%s[/code]\n"
+		+ "[color=#8b949e]Token[/color] 总 %.2fM / 输入 %.2fM / 输出 %.2fM / 消息 %d"
+	) % [
+		_bbcode_escape(_session_title(row)),
+		_bbcode_escape(str(row.get("id", ""))),
+		_bbcode_escape(_row_time_text(row)),
+		_bbcode_escape(_storage_label(str(row.get("storage", "")))),
+		_bbcode_escape(str(row.get("cwd", ""))),
+		_bbcode_escape(str(row.get("resume_command", ""))),
+		_to_million(row.get("total_tokens", 0)),
+		_to_million(row.get("input_tokens", 0)),
+		_to_million(row.get("output_tokens", 0)),
+		int(row.get("message_count", 0)),
+	]
+
+
+func _bbcode_escape(text: String) -> String:
+	return text.replace("[", "[lb]").replace("]", "[rb]")
 
 
 func _confirm_delete_selected() -> void:
@@ -580,11 +1052,11 @@ func _save_current_display_archive() -> void:
 		"saved_at_text": Time.get_datetime_string_from_system(false, true),
 		"type": "当前读取数据",
 		"filter": {
-			"query": filter_edit.text,
-			"include_archived": include_archived_check.button_pressed,
-			"include_backup": include_backup_check.button_pressed,
-			"include_deleted_archive": include_deleted_archive_check.button_pressed,
-			"time_range_days": int(time_range_option.get_selected_id()) if time_range_option != null else 0,
+			"query": session_page.filter_text(),
+			"include_archived": session_page.include_archived(),
+			"include_backup": session_page.include_backup(),
+			"include_deleted_archive": session_page.include_deleted_archive(),
+			"time_range": session_page.selected_time_range_bounds() if session_page != null else {},
 		},
 		"sort_rules": sort_rules,
 		"summary": _build_rows_summary(sessions),
@@ -879,9 +1351,13 @@ func _serializable_rows(rows: Array) -> Array:
 			"id": str(row.get("id", "")),
 			"timestamp": str(row.get("timestamp", "")),
 			"model": str(row.get("model", "")),
+			"source": str(row.get("source", "")),
 			"reasoning_effort": str(row.get("reasoning_effort", "")),
 			"cwd": str(row.get("cwd", "")),
 			"title": str(row.get("title", "")),
+			"summary": str(row.get("summary", "")),
+			"message_count": int(row.get("message_count", 0)),
+			"resume_command": str(row.get("resume_command", "")),
 			"storage": str(row.get("storage", "")),
 			"storage_label": _storage_label(str(row.get("storage", ""))),
 			"deleted_action": str(row.get("deleted_action", "")),
@@ -960,16 +1436,19 @@ func _deleted_archive_rows() -> Array:
 
 
 func _row_in_selected_time_range(row: Dictionary) -> bool:
-	if time_range_option == null:
+	if session_page == null:
 		return true
-	var days := int(time_range_option.get_selected_id())
-	if days <= 0:
-		return true
+	var bounds: Dictionary = session_page.selected_time_range_bounds()
+	var start_unix := int(bounds.get("start", 0))
+	var end_unix := int(bounds.get("end", 0))
 	var row_time := _row_unix_time(row)
 	if row_time <= 0:
 		return false
-	var cutoff := int(Time.get_unix_time_from_system()) - days * 86400
-	return row_time >= cutoff
+	if start_unix > 0 and row_time < start_unix:
+		return false
+	if end_unix > 0 and row_time > end_unix:
+		return false
+	return true
 
 
 func _row_unix_time(row: Dictionary) -> int:
@@ -1212,6 +1691,59 @@ func _find_session_by_key(row_key: String) -> Dictionary:
 		if str(row.get("row_key", "")) == row_key:
 			return row
 	return {}
+
+
+func _project_group_key(row: Dictionary) -> String:
+	var cwd := str(row.get("cwd", "")).strip_edges()
+	return cwd if cwd != "" else "未知目录"
+
+
+func _project_group_label(project_key: String) -> String:
+	if project_key == "未知目录":
+		return "项目: 未知目录"
+	var base := _path_basename(project_key)
+	return "项目: %s" % (base if base != "" else project_key)
+
+
+func _path_basename(path: String) -> String:
+	var normalized := path.strip_edges().trim_suffix("/").trim_suffix("\\")
+	if normalized == "":
+		return ""
+	var parts := normalized.replace("\\", "/").split("/", false)
+	if parts.is_empty():
+		return normalized
+	return str(parts[parts.size() - 1])
+
+
+func _sum_group_value(rows: Array, key: String) -> int:
+	var total := 0
+	for row in rows:
+		if typeof(row) == TYPE_DICTIONARY:
+			total += int(row.get(key, 0))
+	return total
+
+
+func _session_title(row: Dictionary) -> String:
+	var title := str(row.get("title", "")).strip_edges()
+	if title != "":
+		return title
+	var cwd_base := _path_basename(str(row.get("cwd", "")))
+	if cwd_base != "":
+		return cwd_base
+	var session_id := str(row.get("id", ""))
+	return session_id.substr(0, 8) if session_id.length() > 8 else session_id
+
+
+func _row_time_text(row: Dictionary) -> String:
+	var unix := _row_unix_time(row)
+	if unix > 0:
+		return _format_unix_time(unix)
+	var timestamp := str(row.get("timestamp", ""))
+	return timestamp if timestamp != "" else "未知"
+
+
+func _format_unix_time(unix_time: int) -> String:
+	return Time.get_datetime_string_from_unix_time(unix_time + _local_time_offset_seconds(), true)
 
 
 func _to_million(value) -> float:
